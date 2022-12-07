@@ -136,6 +136,23 @@ size_t OV2640::getSize(void)
     return fb->len;
 }
 
+uint8_t *OV2640::getfb(void)
+{
+    runIfNeeded();
+    if (!fb)
+        return NULL; // FIXME - this shouldn't be possible but apparently the new cam board returns null sometimes?
+
+    return fb->buf;
+}
+
+camera_fb_t *OV2640::getframe(void)
+{
+    runIfNeeded();
+    if (!fb)
+        return NULL; // FIXME - this shouldn't be possible but apparently the new cam board returns null sometimes?
+
+    return fb;
+}
 
 framesize_t OV2640::getFrameSize(void)
 {

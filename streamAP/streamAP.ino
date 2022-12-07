@@ -7,16 +7,18 @@
 
 #include "camera_pins.h"
 
-
 OV2640 cam;
 
 WebServer server(80);
 
-const char * ssid = "pestBotCam";
-const char * pass = "pestBotCamPassword123";
+// const char * ssid = "pestBotCam";
+// const char * pass = "pestBotCamPassword123";
 
-const char HEADER[] = "HTTP/1.1 200 OK\r\n" \
-                      "Access-Control-Allow-Origin: *\r\n" \
+const char *ssid = "realme 3 Pro";   // your network SSID
+const char *password = "1234567890"; // your network password
+
+const char HEADER[] = "HTTP/1.1 200 OK\r\n"
+                      "Access-Control-Allow-Origin: *\r\n"
                       "Content-Type: multipart/x-mixed-replace; boundary=1234567890\r\n";
 const char BOUNDARY[] = "\r\n--1234567890\r\n";
 const char CTNTTYPE[] = "Content-Type: image/jpeg\r\nContent-Length: ";
@@ -36,31 +38,32 @@ void handle_jpg_stream(void)
 
   while (true)
   {
-    if (!client.connected()) break;
+    if (!client.connected())
+      break;
     cam.run();
     s = cam.getSize();
     client.write(CTNTTYPE, cntLen);
-    sprintf( buf, "%d\r\n\r\n", s );
+    sprintf(buf, "%d\r\n\r\n", s);
     client.write(buf, strlen(buf));
     client.write((char *)cam.getfb(), s);
     client.write(BOUNDARY, bdrLen);
   }
 }
 
-//const char JHEADER[] = "HTTP/1.1 200 OK\r\n"; 
-//                       "Content-disposition: inline; filename=capture.jpg\r\n";
-//                       "Content-type: image/jpeg\r\n\r\n";
-//const int jhdLen = strlen(JHEADER);
+// const char JHEADER[] = "HTTP/1.1 200 OK\r\n";
+//                        "Content-disposition: inline; filename=capture.jpg\r\n";
+//                        "Content-type: image/jpeg\r\n\r\n";
+// const int jhdLen = strlen(JHEADER);
 //
-//void handle_jpg(void)
+// void handle_jpg(void)
 //{
-//  WiFiClient client = server.client();
+//   WiFiClient client = server.client();
 //
-//  if (!client.connected()) return;
-//  cam.run();
-//  client.write(JHEADER, jhdLen);
-//  client.write((char *)cam.getfb(), cam.getSize());
-//}
+//   if (!client.connected()) return;
+//   cam.run();
+//   client.write(JHEADER, jhdLen);
+//   client.write((char *)cam.getfb(), cam.getSize());
+// }
 
 void handleNotFound()
 {
@@ -100,31 +103,63 @@ void configCam()
   config.pixel_format = PIXFORMAT_JPEG;
 
   // init with high specs to pre-allocate larger buffers
-  if (psramFound()) {
+  if (psramFound())
+  {
     config.frame_size = FRAMESIZE_XGA;
     config.jpeg_quality = 10;
     config.fb_count = 2;
-  } else {
+  }
+  else
+  {
     config.frame_size = FRAMESIZE_SVGA;
     config.jpeg_quality = 12;
     config.fb_count = 1;
   }
 
   esp_err_t err = esp_camera_init(&config);
-  if (err != ESP_OK) {
+  if (err != ESP_OK)
+  {
     Serial.printf("Camera init failed with error 0x%x", err);
     delay(100);
     ESP.restart();
   }
-
 }
+
+// WiFi.mode(WIFI_STA);
+// WiFi.softAP(ssid, pass);
+IPAddress local_IP(192, 168, 128, 147);
+IPAddress gateway(192, 168, 1, 1);
+
+IPAddress subnet(255, 255, 0, 0);
+IPAddress primaryDNS(8, 8, 8, 8);   // optional
+IPAddress secondaryDNS(8, 8, 4, 4); // optional
 
 void startAP()
 {
   IPAddress ip;
-  WiFi.mode(WIFI_STA);
-  WiFi.softAP(ssid, pass);
-  ip = WiFi.softAPIP();
+  // WiFi.mode(WIFI_STA);
+  // WiFi.softAP(ssid, pass);
+
+  if (!WiFi.config(local_IP, gateway, subnet, primaryDNS, secondaryDNS))
+  {
+    Serial.println("STA Failed to configure");
+  }
+
+  WiFi.begin(ssid, password);
+  long tim;
+  tim = millis();
+  while (WiFi.status() != WL_CONNECTED)
+  {
+    //    delay(50);
+    //    digitalWrite(12, HIGH);
+    //    delay(50);
+    //    digitalWrite(12, LOW);
+    Serial.print(".");
+    if (millis() - tim > 6000)
+      ESP.restart();
+  }
+  // ip = WiFi.softAPIP();
+  ip = WiFi.localIP();
 
   //  Serial.println(F("WiFi connected"));
   //  Serial.println("");

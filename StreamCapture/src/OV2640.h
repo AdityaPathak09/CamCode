@@ -21,6 +21,8 @@ public:
     esp_err_t init(camera_config_t config);
     void run(void);
     size_t getSize(void);
+    uint8_t *getfb(void);
+    camera_fb_t *getframe(void);
     int getWidth(void);
     int getHeight(void);
     framesize_t getFrameSize(void);
