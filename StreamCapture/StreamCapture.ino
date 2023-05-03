@@ -55,9 +55,9 @@ IPAddress secondaryDNS(8, 8, 4, 4); //optional
 
 void connectWiFi()
 {
-    if (!WiFi.config(local_IP, gateway, subnet, primaryDNS, secondaryDNS)) {
-    Serial.println("STA Failed to configure");
-  }
+//    if (!WiFi.config(local_IP, gateway, subnet, primaryDNS, secondaryDNS)) {
+//    Serial.println("STA Failed to configure");
+//  }
 
   WiFi.begin(ssid, password);
   
