@@ -30,27 +30,30 @@ String image = "&file=";
 // boolean buttonState = false;
 
 // void IRAM_ATTR clickImg(void * arg)
-//{
+//{m
 //   if (buttonState == false)
 //     buttonState = true;
 // }
 
 ///////////////////////////////////////////////////////////////////////////////////////// connecting to wifi
-const char *ssid = "realme 3 Pro";   // your network SSID
-const char *password = "1234567890"; // your network password
 
-// const char* ssid     = "pestBotCam";   //your network SSID
-// const char* password = "pestBotCamPassword123";   //your network password
+// Replace with your network credentials
+const char* ssid = "Desktop_Adi";
+const char* password = "1234567890";
+
+// Replace with the IP address of your Flask server
+const char* server_ip = "172.16.161.35";
+const int server_port = 8000;
 
 WebServer server(80);
 
-IPAddress local_IP(192, 168, 194, 147); //194.147
-// Set your Gateway IP address
-IPAddress gateway(192, 168, 194, 1);
-
-IPAddress subnet(255, 255, 255, 0);
-IPAddress primaryDNS(8, 8, 8, 8);   //optional
-IPAddress secondaryDNS(8, 8, 4, 4); //optional
+//IPAddress local_IP(192, 168, 194, 147); //194.147
+//// Set your Gateway IP address
+//IPAddress gateway(192, 168, 194, 1);
+//
+//IPAddress subnet(255, 255, 255, 0);
+//IPAddress primaryDNS(8, 8, 8, 8);   //optional
+//IPAddress secondaryDNS(8, 8, 4, 4); //optional
 
 
 void connectWiFi()
@@ -164,46 +167,50 @@ void startAP()
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////// setup
+WiFiClient client;
 
 void setup()
 {
   pinMode(12, OUTPUT);
-  //  digitalWrite(12, HIGH);
-  //  delay(100);
-  //  digitalWrite(12, LOW);
-
   pinMode(4, OUTPUT);
 
   pinMode(camTrig, INPUT_PULLUP);
-  // WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
-
-  //  attachInterrupt(camTrig, clickImg, FALLING);
-  //  gpio_install_isr_service();
-  //  esp_err_t err = gpio_isr_handler_add(GPIO_NUM_12, &clickImg, (void *) 12);
-  //  if (err != ESP_OK) {
-  //    Serial.printf("handler add failed with error 0x%x \r\n", err);
-  //  }
-  //
-  //  err = gpio_set_intr_type(GPIO_NUM_12, GPIO_INTR_POSEDGE);
-  //  if (err != ESP_OK) {
-  //    Serial.printf("set intr type failed with error 0x%x \r\n", err);
-  //  }
 
   Serial.begin(115200);
   //  delay(10);
 
   configCam();
   connectWiFi();
-  
-  //  sensor_t * s = esp_camera_sensor_get();
-  //  // Serial.println(s);
-  //  s->set_dcw(s, 1);
-  // startAP();
+
+  IPAddress localIP = WiFi.localIP();
+
+  while (true) {
+    if (client.connect(server_ip, server_port)) {
+      Serial.println("connected to server");
+
+      client.println("POST /save_ip HTTP/1.1");
+      client.println("Host: " + String(server_ip) + ":" + String(server_port));
+      client.println("Content-Type: text/plain");
+      client.println("Content-Length: " + String((localIP.toString()+"/mjpeg/1").length()));
+      client.println();
+      client.println(localIP.toString()+"/mjpeg/1");
+
+      while (client.connected()) {
+        String line = client.readStringUntil('\n');
+        if (line == "\r") {
+          break;
+        }
+      }
+      String response = client.readStringUntil('\n');
+      Serial.println(response);
+
+      break;
+    }
+    Serial.println("in loop");
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////// streaming
-// const char * ssid = "pestBotCam";
-// const char * pass = "pestBotCamPassword123";
 
 const char HEADER[] = "HTTP/1.1 200 OK\r\n"
                       "Access-Control-Allow-Origin: *\r\n"
@@ -214,106 +221,47 @@ const int hdrLen = strlen(HEADER);
 const int bdrLen = strlen(BOUNDARY);
 const int cntLen = strlen(CTNTTYPE);
 
-// const char JHEADER[] = "HTTP/1.1 200 OK\r\n";
-//                        "Content-disposition: inline; filename=capture.jpg\r\n";
-//                        "Content-type: image/jpeg\r\n\r\n";
-// const int jhdLen = strlen(JHEADER);
-//
-// void handle_jpg(void)
-//{
-//   WiFiClient client = server.client();
-//
-//   if (!client.connected()) return;
-//   cam.run();
-//   client.write(JHEADER, jhdLen);
-//   client.write((char *)cam.getfb(), cam.getSize());
-// }
-
 
 String SendCapturedImage(camera_fb_t * f)
 {
+  camera_fb_t * fb = f;
 
-  camera_fb_t * fba = f;
-
-  if (!fba->buf)
-  {
-    Serial.println("Camera capture failed");
-    // delay(1000);
-    ESP.restart();
-    return "Camera capture failed";
+  if (!fb) {
+    Serial.println("Failed to capture image");
+    return "";
   }
 
-  Serial.println("Connect to " + String(myDomain));
-  WiFiClientSecure client_tcp;
-  client_tcp.setInsecure(); // run version 1.0.5 or above
+  // Connect to the Flask server
 
-  if (client_tcp.connect(myDomain, 443))
-  {
-    Serial.println("Connection successful");
-
-    char *input = (char *)fba->buf;
-    char output[base64_enc_len(3)];
-    String imageFile = "data:image/jpeg;base64,";
-    for (int i = 0; i < fba->len; i++)
-    {
-      base64_encode(output, (input++), 3);
-      if (i % 3 == 0)
-        imageFile += urlencode(String(output));
-    }
-    // esp_camera_fb_return(fba);
-
-    String Data = lineNotifyToken + folderName + fileName + image;
-
-    client_tcp.println("POST " + script + " HTTP/1.1");
-    client_tcp.println("Host: " + String(myDomain));
-    client_tcp.println("Content-Length: " + String(Data.length() + imageFile.length()));
-    client_tcp.println("Content-Type: application/x-www-form-urlencoded");
-    client_tcp.println("Connection: keep-alive");
-    client_tcp.println();
-
-    client_tcp.print(Data);
-    int Index;
-    for (Index = 0; Index < imageFile.length(); Index = Index + 1000)
-    {
-      client_tcp.print(imageFile.substring(Index, Index + 1000));
-    }
-
-    int waitTime = 500; // timeout 10 seconds
-    long startTime = millis();
-    boolean state = false;
-
-    while ((startTime + waitTime) > millis())
-    {
-      Serial.print(".");
-      delay(10);
-      while (client_tcp.available())
-      {
-        char c = client_tcp.read();
-        if (state == true)
-          getBody += String(c);
-        if (c == '\n')
-        {
-          if (getAll.length() == 0)
-            state = true;
-          getAll = "";
-        }
-        else if (c != '\r')
-          getAll += String(c);
-        startTime = millis();
-      }
-      if (getBody.length() > 0)
-        break;
-    }
-    client_tcp.stop();
-    Serial.println(getBody);
-  }
-  else
-  {
-    getBody = "Connected to " + String(myDomain) + " failed.";
-    Serial.println("Connected to " + String(myDomain) + " failed.");
+  if (!client.connect(server_ip, server_port)) {
+    Serial.println("Failed to connect to server");
+    esp_camera_fb_return(fb);
+    return "";
   }
 
-  return getBody;
+  // Send the image data to the Flask server
+
+  client.println("POST /save_image HTTP/1.1");
+  client.println("Host: " + String(server_ip) + ":" + String(server_port));
+  client.println("Content-Type: image/jpeg");
+  client.println("Content-Length: " + String(fb->len));
+  client.println();
+  client.write(fb->buf, fb->len);
+  client.println();
+
+  // Wait for the server to respond
+  while (client.connected()) {
+    String line = client.readStringUntil('\n');
+    if (line == "\r") {
+      break;
+    }
+  }
+  Serial.println("done1");
+  String response = client.readStringUntil('\n');
+  Serial.println(response);
+  esp_camera_fb_return(fb);
+  Serial.println("done2");
+  return "";
 }
 
 
@@ -427,6 +375,4 @@ String urlencode(String str)
 void loop()
 {
   server.handleClient();
-  //  SendCapturedImage();
-  //  delay(10000);
 }
